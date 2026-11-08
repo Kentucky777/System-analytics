@@ -102,37 +102,6 @@ $$\text{Общий фонд} = (\text{Количество ПК} \times 168\text
 
 Файл схемы в стандартном XML формате: [`booking_process.bpmn`](./booking_process.bpmn).
 
-### Визуализация логики процесса:
-
-```mermaid
-flowchart LR
-    Start((● Старт)) --> T1[1. Выбор места и времени]
-    T1 --> T2[2. Клик 'Забронировать']
-    T2 --> G1{Место<br/>свободно?}
-
-    G1 -->|Нет| E_Fail1((X Занято 409))
-    G1 -->|Да| T3[3. Заблокировать место на 15 мин]
-    T3 --> T4[4. Перейти к оплате]
-    T4 --> G2{Оплата<br/>успешна?}
-
-    G2 -->|Нет / Таймаут| T_Cancel[5. Снять бронь]
-    T_Cancel --> E_Fail2((X Отмена))
-
-    G2 -->|Да| G3{+}
-    G3 --> T5[6. Отправить push и чек]
-    G3 --> T6[7. Зарезервировать ПК в клубе]
-
-    T5 --> G4{+}
-    T6 --> G4
-    G4 --> End((✔ Успех))
-
-    classDef success fill:#d4edda,stroke:#28a745,stroke-width:2px;
-    classDef error fill:#f8d7da,stroke:#dc3545,stroke-width:2px;
-    classDef gateway fill:#fff3cd,stroke:#ffc107,stroke-width:2px;
-    class End success;
-    class E_Fail1,E_Fail2 error;
-    class G1,G2,G3,G4 gateway;
-```
 
 ### Разбор шлюзов:
 * **Шлюз XOR (Exclusive) «Место свободно?»**: ветвление взаимно исключающих исходов (`409 Conflict` или временная блокировка места).
