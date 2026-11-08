@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_ColizeumBooking" targetNamespace="http://colizeum.ru/bpmn" exporter="bpmn-js (https://demo.bpmn.io)" exporterVersion="18.31.1">
+  <bpmn:collaboration id="Collaboration_1">
+    <bpmn:participant id="Participant_Colizeum" name="Процесс бронирования игрового места (Colizeum)" processRef="Process_Booking" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_Booking" isExecutable="true">
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="Lane_Client" name="Клиент (Мобильное приложение)">
+        <bpmn:flowNodeRef>Activity_PayOrder</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_Success</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_Cancelled</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_Occupied</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Activity_ClickBook</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Activity_SelectSeat</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>StartEvent_1</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Backend" name="Бэкенд системы бронирования">
+        <bpmn:flowNodeRef>Gateway_CheckSeat</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_PayResult</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Activity_HoldSeat</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Activity_ReleaseSeat</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Activity_SendPush</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Activity_ReservePC</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_JoinParallel</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_ForkParallel</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:userTask id="Activity_PayOrder" name="Оплатить заказ через эквайринг">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Activity_SelectSeat" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Activity_ClickBook" targetRef="Gateway_CheckSeat" />
+    <bpmn:sequenceFlow id="Flow_SeatBusy" name="Нет" sourceRef="Gateway_CheckSeat" targetRef="EndEvent_Occupied" />
+    <bpmn:sequenceFlow id="Flow_SeatFree" name="Да" sourceRef="Gateway_CheckSeat" targetRef="Activity_HoldSeat" />
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Activity_HoldSeat" targetRef="Activity_PayOrder" />
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Activity_PayOrder" targetRef="Gateway_PayResult" />
+    <bpmn:sequenceFlow id="Flow_PayFailed" name="Нет / Таймаут" sourceRef="Gateway_PayResult" targetRef="Activity_ReleaseSeat" />
+    <bpmn:sequenceFlow id="Flow_PaySuccess" name="Да" sourceRef="Gateway_PayResult" targetRef="Gateway_ForkParallel" />
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="Activity_ReleaseSeat" targetRef="EndEvent_Cancelled" />
+    <bpmn:sequenceFlow id="Flow_Fork1" sourceRef="Gateway_ForkParallel" targetRef="Activity_SendPush" />
+    <bpmn:sequenceFlow id="Flow_Fork2" sourceRef="Gateway_ForkParallel" targetRef="Activity_ReservePC" />
+    <bpmn:sequenceFlow id="Flow_Join1" sourceRef="Activity_SendPush" targetRef="Gateway_JoinParallel" />
+    <bpmn:sequenceFlow id="Flow_Join2" sourceRef="Activity_ReservePC" targetRef="Gateway_JoinParallel" />
+    <bpmn:sequenceFlow id="Flow_Final" sourceRef="Gateway_JoinParallel" targetRef="EndEvent_Success" />
+    <bpmn:endEvent id="EndEvent_Success" name="Бронь подтверждена (Status: CONFIRMED)">
+      <bpmn:incoming>Flow_Final</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="EndEvent_Cancelled" name="Бронь аннулирована">
+      <bpmn:incoming>Flow_6</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="EndEvent_Occupied" name="Ошибка 409 Conflict: Место занято">
+      <bpmn:incoming>Flow_SeatBusy</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:exclusiveGateway id="Gateway_CheckSeat" name="Место свободно?">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_SeatBusy</bpmn:outgoing>
+      <bpmn:outgoing>Flow_SeatFree</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:exclusiveGateway id="Gateway_PayResult" name="Оплата подтверждена?">
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+      <bpmn:outgoing>Flow_PayFailed</bpmn:outgoing>
+      <bpmn:outgoing>Flow_PaySuccess</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Activity_HoldSeat" name="Временно заблокировать место на 15 мин (Status: PENDING)">
+      <bpmn:incoming>Flow_SeatFree</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Activity_ClickBook" name="Нажать&#10;кнопку &#39;Забронировать&#39; (POST /bookings)">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Activity_ReleaseSeat" name="Снять бронь (Status: CANCELLED)">
+      <bpmn:incoming>Flow_PayFailed</bpmn:incoming>
+      <bpmn:outgoing>Flow_6</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Activity_SendPush" name="Отправить Push и чек клиенту">
+      <bpmn:incoming>Flow_Fork1</bpmn:incoming>
+      <bpmn:outgoing>Flow_Join1</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Activity_ReservePC" name="Отправить команду резерва ПК в клуб">
+      <bpmn:incoming>Flow_Fork2</bpmn:incoming>
+      <bpmn:outgoing>Flow_Join2</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:parallelGateway id="Gateway_JoinParallel" name="Синхронизация">
+      <bpmn:incoming>Flow_Join1</bpmn:incoming>
+      <bpmn:incoming>Flow_Join2</bpmn:incoming>
+      <bpmn:outgoing>Flow_Final</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:parallelGateway id="Gateway_ForkParallel" name="Параллельно">
+      <bpmn:incoming>Flow_PaySuccess</bpmn:incoming>
+      <bpmn:outgoing>Flow_Fork1</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Fork2</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Activity_SelectSeat" targetRef="Activity_ClickBook" />
+    <bpmn:userTask id="Activity_SelectSeat" name="Выбрать&#10;клуб, место и&#10;интервал">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:startEvent id="StartEvent_1" name="Потребность сыграть в клубе">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_1">
+      <bpmndi:BPMNShape id="Participant_Colizeum_di" bpmnElement="Participant_Colizeum" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="1470" height="420" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Backend_di" bpmnElement="Lane_Backend" isHorizontal="true">
+        <dc:Bounds x="190" y="270" width="1440" height="230" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Client_di" bpmnElement="Lane_Client" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="1440" height="190" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_PayOrder_di" bpmnElement="Activity_PayOrder">
+        <dc:Bounds x="730" y="130" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Success_di" bpmnElement="EndEvent_Success">
+        <dc:Bounds x="1492" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1473" y="188" width="74" height="53" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Cancelled_di" bpmnElement="EndEvent_Cancelled">
+        <dc:Bounds x="1092" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1073" y="114.5" width="73" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Occupied_di" bpmnElement="EndEvent_Occupied">
+        <dc:Bounds x="632" y="132" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="612" y="82" width="75" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_CheckSeat_di" bpmnElement="Gateway_CheckSeat" isMarkerVisible="true">
+        <dc:Bounds x="465" y="355" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="445" y="405" width="90" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_PayResult_di" bpmnElement="Gateway_PayResult" isMarkerVisible="true">
+        <dc:Bounds x="780" y="355" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="765" y="317.5" width="80" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_HoldSeat_di" bpmnElement="Activity_HoldSeat">
+        <dc:Bounds x="610" y="380" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_ClickBook_di" bpmnElement="Activity_ClickBook">
+        <dc:Bounds x="435" y="130" width="110" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_ReleaseSeat_di" bpmnElement="Activity_ReleaseSeat">
+        <dc:Bounds x="925" y="410" width="110" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_SendPush_di" bpmnElement="Activity_SendPush">
+        <dc:Bounds x="1210" y="290" width="120" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_ReservePC_di" bpmnElement="Activity_ReservePC">
+        <dc:Bounds x="1210" y="415" width="120" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_JoinParallel_di" bpmnElement="Gateway_JoinParallel">
+        <dc:Bounds x="1395" y="325" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1455" y="343" width="80" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_ForkParallel_di" bpmnElement="Gateway_ForkParallel">
+        <dc:Bounds x="1065" y="355" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1125" y="373" width="70" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_SelectSeat_di" bpmnElement="Activity_SelectSeat">
+        <dc:Bounds x="305" y="130" width="110" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
+        <dc:Bounds x="242" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="219" y="188" width="82" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+        <di:waypoint x="278" y="170" />
+        <di:waypoint x="305" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
+        <di:waypoint x="415" y="170" />
+        <di:waypoint x="435" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3">
+        <di:waypoint x="450" y="210" />
+        <di:waypoint x="450" y="380" />
+        <di:waypoint x="465" y="380" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_SeatBusy_di" bpmnElement="Flow_SeatBusy">
+        <di:waypoint x="490" y="355" />
+        <di:waypoint x="490" y="300" />
+        <di:waypoint x="650" y="300" />
+        <di:waypoint x="650" y="168" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="560" y="282" width="20" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_SeatFree_di" bpmnElement="Flow_SeatFree">
+        <di:waypoint x="515" y="380" />
+        <di:waypoint x="548" y="380" />
+        <di:waypoint x="548" y="420" />
+        <di:waypoint x="610" y="420" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="572" y="402" width="14" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4">
+        <di:waypoint x="710" y="380" />
+        <di:waypoint x="710" y="170" />
+        <di:waypoint x="730" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_5_di" bpmnElement="Flow_5">
+        <di:waypoint x="785" y="210" />
+        <di:waypoint x="785" y="375" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_PayFailed_di" bpmnElement="Flow_PayFailed">
+        <di:waypoint x="805" y="405" />
+        <di:waypoint x="805" y="445" />
+        <di:waypoint x="925" y="445" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="823" y="448" width="65" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_PaySuccess_di" bpmnElement="Flow_PaySuccess">
+        <di:waypoint x="830" y="380" />
+        <di:waypoint x="1065" y="380" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="951" y="363" width="14" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_6_di" bpmnElement="Flow_6">
+        <di:waypoint x="980" y="410" />
+        <di:waypoint x="980" y="299" />
+        <di:waypoint x="1110" y="299" />
+        <di:waypoint x="1110" y="188" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Fork1_di" bpmnElement="Flow_Fork1">
+        <di:waypoint x="1090" y="355" />
+        <di:waypoint x="1090" y="320" />
+        <di:waypoint x="1210" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Fork2_di" bpmnElement="Flow_Fork2">
+        <di:waypoint x="1090" y="405" />
+        <di:waypoint x="1090" y="435" />
+        <di:waypoint x="1210" y="435" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Join1_di" bpmnElement="Flow_Join1">
+        <di:waypoint x="1330" y="320" />
+        <di:waypoint x="1363" y="320" />
+        <di:waypoint x="1363" y="350" />
+        <di:waypoint x="1395" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Join2_di" bpmnElement="Flow_Join2">
+        <di:waypoint x="1330" y="445" />
+        <di:waypoint x="1420" y="445" />
+        <di:waypoint x="1420" y="375" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Final_di" bpmnElement="Flow_Final">
+        <di:waypoint x="1420" y="325" />
+        <di:waypoint x="1420" y="170" />
+        <di:waypoint x="1492" y="170" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
