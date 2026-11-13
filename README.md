@@ -21,7 +21,7 @@
 * **Тестовый датасет:** [`seed_data.sql`](./seed_data.sql)
 * **SQL-запрос утилизации:** [`utilization_query.sql`](./utilization_query.sql)
 * **BPMN-диаграмма (XML):** [`booking_process.bpmn`](./booking_process.bpmn)
-* **Вопросы заказчику и допущения['docs/open-questions.md'](./docs/open-questions.md) 
+* **Вопросы заказчику и допущения:** ['docs/open-questions.md'](./docs/open-questions.md) 
 
 ---
 
